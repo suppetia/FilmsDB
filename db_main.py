@@ -3,7 +3,7 @@
 
 """
     run the gui of private film database
-    VERSION 1.0.0
+    VERSION 1.0.1
     2019, Christopher Mertens
 """
 

@@ -745,7 +745,7 @@ class WindowFilmEdit:
 
         # if cover_path refers to a link on the internet download that cover picture from link
         cover_path = self.txt_cover_path.get() if self.txt_cover_path.get() != "" else None
-        if "www" in cover_path or cover_path.startswith("http"):
+        if cover_path and ("www" in cover_path or cover_path.startswith("http")):
             cover_path = self.download_cover_picture(film_title=title, cover_path=cover_path)
 
         self.db.add_film(Film(title, release_year, director, fsk, genre, actors,
