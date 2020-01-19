@@ -16,13 +16,13 @@ class DB_GUI:
     """ gui to display a FilmDB and query it """
 
     # standard directory for filedialogs
-    PRIVATE_DB_DIRECTORY = "..\\my_db"
+    STANDARD_DB_DIR = "..\\my_db"
     # standard directory for cover pictures
-    STANDARD_COVER_IMG_DIR = os.path.join(PRIVATE_DB_DIRECTORY, "cover_images")
+    STANDARD_COVER_IMG_DIR = os.path.join(STANDARD_DB_DIR, "cover_images")
     # standard cover picture if no cover is stored
     STANDARD_IMG_COVER = os.path.join(STANDARD_COVER_IMG_DIR, "image_not_found.gif")
     # standard db is saved in "settings.conf"
-    settings_file_name = os.path.join(PRIVATE_DB_DIRECTORY, "settings.conf")
+    SETTINGS_FILE_NAME = os.path.join("settings.conf")
 
     def __init__(self, master):
 
@@ -31,6 +31,12 @@ class DB_GUI:
         master.geometry("600x570")
 
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # load settings
+        conf = DB_GUI.load_settings()
+        self.cover_img_dir = conf['cover_img_dir']
+        self.private_db_dir = conf['private_db_dir']
+        self.default_cover = conf['default_cover']
 
         # menu bar
         menu = Menu(master)
@@ -49,9 +55,9 @@ class DB_GUI:
         menu.add_separator()
 
         menu_films = Menu(menu, tearoff=0)
-        menu_films.add_command(label="Film hinzufügen", command=lambda: WindowFilmEdit(self.master, self.db, "add"))
-        menu_films.add_command(label="Film bearbeiten", command=lambda: WindowFilmEdit(self.master, self.db, "edit"))
-        menu_films.add_command(label="Film löschen", command=lambda: WindowFilmEdit(self.master, self.db, "remove"))
+        menu_films.add_command(label="Film hinzufügen", command=lambda: WindowFilmEdit(self, self.db, "add"))
+        menu_films.add_command(label="Film bearbeiten", command=lambda: WindowFilmEdit(self, self.db, "edit"))
+        menu_films.add_command(label="Film löschen", command=lambda: WindowFilmEdit(self, self.db, "remove"))
 
         menu.add_cascade(label="Filme", menu=menu_films)
 
@@ -214,7 +220,7 @@ class DB_GUI:
         # show the cover (default is "image not found")
         # resize the cover image
         baseheight = 160
-        img = Image.open(DB_GUI.STANDARD_IMG_COVER)
+        img = Image.open(self.default_cover)
         hpercent = (baseheight / float(img.size[1]))
         wsize = int((float(img.size[0]) * float(hpercent)))
         img = img.resize((wsize, baseheight), Image.ANTIALIAS)
@@ -228,19 +234,7 @@ class DB_GUI:
         try:
             self.db_filename_abspath = ""
 
-            setting_found = False
-
-            # check if standard database is stored
-            if os.path.isfile(self.settings_file_name):
-                with open(self.settings_file_name, 'r') as settings_file:
-                    for line in settings_file:
-                        if line.startswith("db_filename_path"):
-                            db_filename_path = line.split("=")[1]
-                            db_filename_path = db_filename_path[:-1]
-                            setting_found = True
-                            break
-
-            if not setting_found:
+            if not conf['db_filename_path']:
                 # creates frame to choose a database
                 frame = Toplevel(master)
                 frame.wm_title("Datenbank auswählen")
@@ -256,12 +250,14 @@ class DB_GUI:
 
                 master.wait_window(frame)
 
-                with open(self.settings_file_name, 'a') as settings_file:
+                with open(self.SETTINGS_FILE_NAME, 'a') as settings_file:
                     db_filename_path = os.path.relpath(self.db_filename_abspath)
                     if db_filename_path:
                         settings_file.write("db_filename_path=" + db_filename_path + "\n")
                     else:
                         raise NoDBException()
+            else:
+                db_filename_path = conf['db_filename_path']
 
             # enable db connection
             self.db = FilmeDB(db_filename_path)
@@ -343,8 +339,9 @@ class DB_GUI:
 
         # load image and resize it
         baseheight = 160
-        img = Image.open(film[8] if film[8] is not None
-                         else DB_GUI.STANDARD_IMG_COVER)
+        img = Image.open(self.cover_img_dir + film[8]
+                         if film[8] is not None
+                         else self.default_cover)
         hpercent = (baseheight / float(img.size[1]))
         wsize = int((float(img.size[0]) * float(hpercent)))
         img = img.resize((wsize, baseheight), Image.ANTIALIAS)
@@ -352,6 +349,35 @@ class DB_GUI:
         image = ImageTk.PhotoImage(img)
         self.lbl_cover.config(image=image)
         self.lbl_cover.image = image
+
+    @staticmethod
+    def load_settings():
+        # check if standard database is stored
+        conf = {}
+        if os.path.isfile(DB_GUI.SETTINGS_FILE_NAME):
+            with open(DB_GUI.SETTINGS_FILE_NAME, 'r') as settings_file:
+                for line in settings_file:
+                    if line.startswith("db_filename_path"):  # selected database
+                        db_filename_path = line.split("=")[1]
+                        conf['db_filename_path'] = db_filename_path[:-1]
+                    else:
+                        conf['db_filename_path'] = ""
+                    if line.startswith("cover_directory"):  # where database data is stored
+                        cover_img_dir = line.split("=")[1]
+                        conf['cover_img_dir'] = cover_img_dir[:-1]
+                    else:
+                        conf['cover_img_dir'] = DB_GUI.STANDARD_COVER_IMG_DIR
+                    if line.startswith("private_db_directory"):
+                        private_db_dir = line.split("=")[1]
+                        conf['private_db_dir'] = private_db_dir[:-1]
+                    else:
+                        conf['private_db_dir'] = DB_GUI.STANDARD_DB_DIR
+                    if line.startswith("default_cover"):
+                        default_cover = line.split('=')[1]
+                        conf['default_cover'] = default_cover[:-1]
+                    else:
+                        conf['default_cover'] = DB_GUI.STANDARD_IMG_COVER
+        return conf
 
     def save_db(self):
         """
@@ -369,7 +395,7 @@ class DB_GUI:
         export the db to a csv file
         """
         try:
-            export_filename = filedialog.asksaveasfilename(initialdir=DB_GUI.PRIVATE_DB_DIRECTORY,
+            export_filename = filedialog.asksaveasfilename(initialdir=self.private_db_dir,
                                                            defaultextension=".csv",
                                                            filetypes=[(".csv-Datei", "*.csv")],
                                                            title="Exportieren als")
@@ -390,7 +416,7 @@ class DB_GUI:
         !careful: overwrites the data of the database!
         """
         try:
-            import_filename = filedialog.askopenfilename(initialdir=DB_GUI.PRIVATE_DB_DIRECTORY,
+            import_filename = filedialog.askopenfilename(initialdir=self.private_db_dir,
                                                          filetypes=[("csv-Datei", "*.csv")],
                                                          title="Datenbank importieren")
             if import_filename and import_filename.split(".")[-1] == "csv":
@@ -422,16 +448,16 @@ class DB_GUI:
             if create_new:
                 # new db-file
                 db_filename_abspath = filedialog.asksaveasfilename(title="Speichern unter",
-                                                                   initialdir=DB_GUI.PRIVATE_DB_DIRECTORY,
+                                                                   initialdir=self.private_db_dir,
                                                                    defaultextension=".db",
                                                                    filetypes=[("Datenbank", "*.db")])
             else:
                 # open db-file
-                db_filename_abspath = filedialog.askopenfilename(initialdir=DB_GUI.PRIVATE_DB_DIRECTORY,
+                db_filename_abspath = filedialog.askopenfilename(initialdir=self.private_db_dir,
                                                                  filetypes=[("Datenbank", "*.db")],
                                                                  title="Datenbank auswählen")
 
-            with open(self.settings_file_name, 'r+') as settings_file:
+            with open(self.SETTINGS_FILE_NAME, 'r+') as settings_file:
                 if db_filename_abspath:
                     db_filename_path = os.path.relpath(db_filename_abspath)
                     # rewrites the standard
@@ -469,7 +495,7 @@ class DB_GUI:
         :param start_toplevel: toplevel frame which asks for database if no standard is stored
         """
         db_path = filedialog.asksaveasfilename(title="Speichern unter",
-                                               initialdir=DB_GUI.PRIVATE_DB_DIRECTORY,
+                                               initialdir=self.private_db_dir,
                                                defaultextension=".db",
                                                filetypes=[("Datenbank", "*.db")])
         if db_path:
@@ -483,7 +509,7 @@ class DB_GUI:
         open new database and store path it in variable
         :param start_toplevel: toplevel frame which asks for database if no standard is stored
         """
-        db_path = filedialog.askopenfilename(initialdir=DB_GUI.PRIVATE_DB_DIRECTORY,
+        db_path = filedialog.askopenfilename(initialdir=self.private_db_dir,
                                              filetypes=[("Datenbank", "*.db")],
                                              title="Datenbank auswählen")
         if db_path:
@@ -509,11 +535,12 @@ class DB_GUI:
 
 class WindowFilmEdit:
 
-    def __init__(self, master, db, edit_type='add'):
+    def __init__(self, db_gui, db, edit_type='add'):
         self.db = db
+        self.db_gui = db_gui
 
         self.frame = Toplevel()
-        self.frame.transient(master)
+        self.frame.transient(self.db_gui.master)
 
         if edit_type is 'add':
             self.frame.title("Film hinzufügen")
@@ -637,10 +664,10 @@ class WindowFilmEdit:
             self.edit_film_id = 0
             WindowLoadFilm(self, self.db)
 
-        master.wait_window(self.frame)
+        self.db_gui.master.wait_window(self.frame)
 
     def load_cover_path(self):
-        cover_path = filedialog.askopenfilename(initialdir=DB_GUI.PRIVATE_DB_DIRECTORY,
+        cover_path = filedialog.askopenfilename(initialdir=self.private_db_dir,
                                                 filetypes=[("Bilddatei", "*.jpg *.png *.gif"), ("alle Dateien", "*.*")],
                                                 title="Coverbild auswählen")
         cover_relpath = os.path.relpath(cover_path)
@@ -745,8 +772,12 @@ class WindowFilmEdit:
 
         # if cover_path refers to a link on the internet download that cover picture from link
         cover_path = self.txt_cover_path.get() if self.txt_cover_path.get() != "" else None
-        if cover_path and ("www" in cover_path or cover_path.startswith("http")):
-            cover_path = self.download_cover_picture(film_title=title, cover_path=cover_path)
+        if cover_path:
+            if "www" in cover_path or cover_path.startswith("http"):
+                cover_path = self.download_cover_picture(film_title=title, cover_path=cover_path)
+                print(cover_path)
+            cover_path = cover_path.split(self.db_gui.cover_img_dir)[1]
+            print(cover_path)
 
         self.db.add_film(Film(title, release_year, director, fsk, genre, actors,
                          length, cover_path, comment, rating, disc_type))
@@ -771,8 +802,10 @@ class WindowFilmEdit:
 
         # if cover_path refers to a link on the internet download that cover picture from link
         cover_path = self.txt_cover_path.get() if self.txt_cover_path.get() != "" else None
-        if "www" in cover_path or cover_path.startswith("http"):
-            cover_path = self.download_cover_picture(film_title=title, cover_path=cover_path)
+        if cover_path:
+            if "www" in cover_path or cover_path.startswith("http"):
+                cover_path = self.download_cover_picture(film_title=title, cover_path=cover_path)
+            cover_path = cover_path.split(self.db_gui.cover_img_dir)[1]
 
         self.db.edit_film_by_id(self.edit_film_id, [title, release_year, director, fsk, genre, actors,
                                                     length, cover_path, comment, rating, disc_type])
@@ -791,7 +824,7 @@ class WindowFilmEdit:
         """ download the picture from the internet
             :return path to the picture """
 
-        if cover_path.endswith(".jpg") or cover_path.endswith(".png") or cover_path.endswith(".gif"):
+        if cover_path.endswith(".jpg") or cover_path.endswith(".png") or cover_path.endswith(".gif") or cover_path.endswith('.jfif'):
             r = requests.get(cover_path, stream=True)
 
             if r.status_code == 200:
@@ -804,7 +837,9 @@ class WindowFilmEdit:
                 img_name = "".join(img_name) + "." + cover_path.split(".")[-1]
 
                 # create the path to the storage
-                store_path = os.path.join(DB_GUI.STANDARD_COVER_IMG_DIR, img_name)
+                conf = DB_GUI.load_settings()
+                cover_img_dir = conf['cover_img_dir'] if conf['cover_img_dir'] else DB_GUI.STANDARD_COVER_IMG_DIR
+                store_path = os.path.join(cover_img_dir, img_name)
 
                 with open(store_path, 'wb') as f:
                     for chunk in r:
@@ -901,7 +936,15 @@ class FilmRemoveException(Exception):
     pass
 
 
-class CoverDownloadException(Exception):
+class CoverException(Exception):
+    pass
+
+
+class CoverInWrongDirectoryException(CoverException):
+    pass
+
+
+class CoverDownloadException(CoverException):
     pass
 
 
