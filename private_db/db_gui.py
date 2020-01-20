@@ -37,6 +37,7 @@ class DB_GUI:
         self.cover_img_dir = conf['cover_img_dir']
         self.private_db_dir = conf['private_db_dir']
         self.default_cover = conf['default_cover']
+        print(conf)
 
         # menu bar
         menu = Menu(master)
@@ -354,29 +355,26 @@ class DB_GUI:
     def load_settings():
         # check if standard database is stored
         conf = {}
+        # assign default values
+        conf['db_filename_path'] = ""
+        conf['cover_img_dir'] = DB_GUI.STANDARD_COVER_IMG_DIR
+        conf['private_db_dir'] = DB_GUI.STANDARD_DB_DIR
+        conf['default_cover'] = DB_GUI.STANDARD_IMG_COVER
         if os.path.isfile(DB_GUI.SETTINGS_FILE_NAME):
             with open(DB_GUI.SETTINGS_FILE_NAME, 'r') as settings_file:
                 for line in settings_file:
                     if line.startswith("db_filename_path"):  # selected database
                         db_filename_path = line.split("=")[1]
                         conf['db_filename_path'] = db_filename_path[:-1]
-                    else:
-                        conf['db_filename_path'] = ""
                     if line.startswith("cover_directory"):  # where database data is stored
                         cover_img_dir = line.split("=")[1]
                         conf['cover_img_dir'] = cover_img_dir[:-1]
-                    else:
-                        conf['cover_img_dir'] = DB_GUI.STANDARD_COVER_IMG_DIR
                     if line.startswith("private_db_directory"):
                         private_db_dir = line.split("=")[1]
                         conf['private_db_dir'] = private_db_dir[:-1]
-                    else:
-                        conf['private_db_dir'] = DB_GUI.STANDARD_DB_DIR
                     if line.startswith("default_cover"):
                         default_cover = line.split('=')[1]
                         conf['default_cover'] = default_cover[:-1]
-                    else:
-                        conf['default_cover'] = DB_GUI.STANDARD_IMG_COVER
         return conf
 
     def save_db(self):
