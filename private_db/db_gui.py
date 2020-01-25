@@ -1,5 +1,5 @@
 ﻿"""
-@author
+@author Christopher Mertens
 """
 
 import os
@@ -540,16 +540,7 @@ class WindowFilmEdit:
         self.frame = Toplevel()
         self.frame.transient(self.db_gui.master)
 
-        if edit_type is 'add':
-            self.frame.title("Film hinzufügen")
-        elif edit_type is 'edit':
-            self.frame.title("Film bearbeiten")
-        elif edit_type is 'remove':
-            self.frame.title("Film löschen")
-        self.frame.geometry("700x150")
-
         # entries for the film data
-
         lbl_title = Label(self.frame, text="Filmtitel")
         lbl_title.grid(row=0, column=0, padx=5, pady=5, sticky=W)
 
@@ -657,12 +648,26 @@ class WindowFilmEdit:
         self.btn_confirm = Button(self.frame, text=txt_btn_confirm, width=20, command=lambda: self.confirm_edit(edit_type))
         self.btn_confirm.grid(row=4, column=3, padx=5, pady=10, columnspan=2, sticky=W)
 
+        if edit_type is 'add':
+            new_film_id = self.db.execute_sql("SELECT MAX(film_id) from films")[0][0] + 1
+            self.frame_title = "Film hinzufügen - Nummer " + str(new_film_id)
+        elif edit_type is 'edit':
+            self.frame_title = "Film bearbeiten"
+        elif edit_type is 'remove':
+            self.frame_title = "Film löschen"
+        self.frame.geometry("700x150")
+
         if edit_type is 'edit' or edit_type is 'remove':
             # store film_id to edit/delete the film
             self.edit_film_id = 0
             WindowLoadFilm(self, self.db)
+        else:
+            self.set_frame_title()
 
         self.db_gui.master.wait_window(self.frame)
+
+    def set_frame_title(self):
+        self.frame.title(self.frame_title)
 
     def load_cover_path(self):
         cover_path = filedialog.askopenfilename(initialdir=self.private_db_dir,
@@ -910,6 +915,9 @@ class WindowLoadFilm:
             window_film_edit.txt_comment.set(film[9] if film[9] is not None else "")
             window_film_edit.txt_rating.set(film[10] if film[10] is not None else "")
             window_film_edit.txt_disc_type.set(film[11] if film[11] is not None else "")
+
+            window_film_edit.frame_title += " - Nummer " + str(window_film_edit.edit_film_id)
+            window_film_edit.set_frame_title()
 
             self.frame.destroy()
 
