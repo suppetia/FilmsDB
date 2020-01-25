@@ -252,7 +252,10 @@ class DB_GUI:
                 master.wait_window(frame)
 
                 with open(self.SETTINGS_FILE_NAME, 'a') as settings_file:
-                    db_filename_path = os.path.relpath(self.db_filename_abspath)
+                    try:  # if path is on other mount than 'C:'
+                        db_filename_path = os.path.relpath(self.db_filename_abspath)
+                    except ValueError:
+                        db_filename_path = self.db_filename_abspath
                     if db_filename_path:
                         settings_file.write("db_filename_path=" + db_filename_path + "\n")
                     else:
@@ -279,6 +282,7 @@ class DB_GUI:
             messagebox.showerror("Fehler", "keine Datenbank ausgewählt")
         except Exception as e:
             messagebox.showerror("Fehler", "ungültige Datenbank")
+            print(type(e))
             print(e)
 
     def film_query(self, *args):
@@ -457,7 +461,10 @@ class DB_GUI:
 
             with open(self.SETTINGS_FILE_NAME, 'r+') as settings_file:
                 if db_filename_abspath:
-                    db_filename_path = os.path.relpath(db_filename_abspath)
+                    try:  # if path is on other mount than 'C:'
+                        db_filename_path = os.path.relpath(db_filename_abspath)
+                    except ValueError:
+                        db_filename_path = db_filename_abspath
                     # rewrites the standard
                     text = settings_file.readlines()
                     settings_file.seek(0)
@@ -478,6 +485,7 @@ class DB_GUI:
             messagebox.showerror("Fehler", "keine Datenbank ausgewählt")
         except Exception as e:
             messagebox.showerror("Fehler", "ungültige Datenbank")
+            print(type(e))
             print(e)
 
         if self.db.get_all():
