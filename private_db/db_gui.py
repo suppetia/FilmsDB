@@ -678,7 +678,7 @@ class WindowFilmEdit:
         self.frame.title(self.frame_title)
 
     def load_cover_path(self):
-        cover_path = filedialog.askopenfilename(initialdir=self.private_db_dir,
+        cover_path = filedialog.askopenfilename(initialdir=self.db_gui.private_db_dir,
                                                 filetypes=[("Bilddatei", "*.jpg *.png *.gif"), ("alle Dateien", "*.*")],
                                                 title="Coverbild auswählen")
         cover_relpath = os.path.relpath(cover_path)
@@ -781,13 +781,14 @@ class WindowFilmEdit:
         rating = int(self.txt_rating.get()) if self.txt_rating.get() != "" else None
         disc_type = int(self.txt_disc_type.get()) if self.txt_disc_type.get() != "" else None
 
-        # if cover_path refers to a link on the internet download that cover picture from link
         cover_path = self.txt_cover_path.get() if self.txt_cover_path.get() != "" else None
         if cover_path:
+            # if cover_path refers to a link on the internet download that cover picture from link
             if "www" in cover_path or cover_path.startswith("http"):
                 cover_path = self.download_cover_picture(film_title=title, cover_path=cover_path)
-                print(cover_path)
-            cover_path = cover_path.split(self.db_gui.cover_img_dir)[1]
+            # if cover is in default directory remove it
+            if self.db_gui.cover_img_dir in cover_path:
+                cover_path = cover_path.split(self.db_gui.cover_img_dir)[1]
             print(cover_path)
 
         self.db.add_film(Film(title, release_year, director, fsk, genre, actors,
@@ -811,12 +812,14 @@ class WindowFilmEdit:
         rating = int(self.txt_rating.get()) if self.txt_rating.get() != "" else None
         disc_type = int(self.txt_disc_type.get()) if self.txt_disc_type.get() != "" else None
 
-        # if cover_path refers to a link on the internet download that cover picture from link
         cover_path = self.txt_cover_path.get() if self.txt_cover_path.get() != "" else None
         if cover_path:
+            # if cover_path refers to a link on the internet download that cover picture from link
             if "www" in cover_path or cover_path.startswith("http"):
                 cover_path = self.download_cover_picture(film_title=title, cover_path=cover_path)
-            cover_path = cover_path.split(self.db_gui.cover_img_dir)[1]
+            # if cover is in default directory remove it
+            if self.db_gui.cover_img_dir in cover_path:
+                cover_path = cover_path.split(self.db_gui.cover_img_dir)[1]
 
         self.db.edit_film_by_id(self.edit_film_id, [title, release_year, director, fsk, genre, actors,
                                                     length, cover_path, comment, rating, disc_type])
