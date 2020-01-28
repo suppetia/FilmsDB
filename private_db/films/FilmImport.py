@@ -1,4 +1,5 @@
 import requests
+import imdb
 
 
 class OmdbFilmImport:
@@ -34,6 +35,51 @@ class OmdbFilmImport:
                 raise MovieNotFoundException()
             else:
                 raise FilmImportException()
+
+
+class ImdbFilmImport:
+
+    @staticmethod
+    def get_film_by_title(title):
+
+        film_data = {}
+
+        try:
+            ia = imdb.IMDb()
+
+            movies = ia.search_movie(title)
+            if not movies:
+                raise MovieNotFoundException()
+            movie = ia.get_movie(movies[0].movieID)
+
+            film_data['original title'] = movie.get('title')
+            film_data['German title'] = None
+            for i in movie.get('akas'):
+                if i.endswith('(Germany)'):
+                    film_data['German title'] = i[:-10]
+                    break
+            film_data['year'] = movie.get('year')
+
+            # TODO: test runtimes
+            try:
+                film_data['length'] = int(movie.get('runtimes')[0])
+            except ValueError:
+                print(movie.get('runtimes'))
+                for x in movie.get('runtimes'):
+                    if x.startswith('GER'):
+                        film_data['length'] = x.split(':')[1]
+            film_data['director'] = ', '.join([x['name'] for x in movie.get('director')])
+            film_data['genre'] = ', '.join([x for x in movie.get('genre')])
+            film_data['cast'] = ', '.join([x['name'] for x in movie.get('cast')[:5]])
+            film_data['cover_url'] = movie.get('cover url')
+
+            return film_data
+        except imdb.IMDbError as e:
+            print(e)
+            raise FilmImportException()
+        except Exception as e:
+            print(e)
+            raise FilmImportException()
 
 
 class FilmImportException(Exception):

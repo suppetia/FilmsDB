@@ -23,6 +23,8 @@ class DB_GUI:
     STANDARD_IMG_COVER = os.path.join(STANDARD_COVER_IMG_DIR, "image_not_found.gif")
     # standard db is saved in "settings.conf"
     SETTINGS_FILE_NAME = os.path.join("settings.conf")
+    # standard online database to import film information from
+    STANDARD_ONLINE_DB = 'imdb'
 
     def __init__(self, master):
 
@@ -37,6 +39,7 @@ class DB_GUI:
         self.cover_img_dir = conf['cover_img_dir']
         self.private_db_dir = conf['private_db_dir']
         self.default_cover = conf['default_cover']
+        self.default_online_db = conf['online_db']
         print(conf)
 
         # menu bar
@@ -274,10 +277,6 @@ class DB_GUI:
             if self.db.get_all():
                 self.film_query("")
 
-                # select first film
-                self.lb_res_query.activate(0)
-                self.display_film(int(self.lb_res_query.get(ACTIVE).split(":")[0]))
-
         except NoDBException:
             messagebox.showerror("Fehler", "keine Datenbank ausgewählt")
         except Exception as e:
@@ -354,32 +353,6 @@ class DB_GUI:
         image = ImageTk.PhotoImage(img)
         self.lbl_cover.config(image=image)
         self.lbl_cover.image = image
-
-    @staticmethod
-    def load_settings():
-        # check if standard database is stored
-        conf = {}
-        # assign default values
-        conf['db_filename_path'] = ""
-        conf['cover_img_dir'] = DB_GUI.STANDARD_COVER_IMG_DIR
-        conf['private_db_dir'] = DB_GUI.STANDARD_DB_DIR
-        conf['default_cover'] = DB_GUI.STANDARD_IMG_COVER
-        if os.path.isfile(DB_GUI.SETTINGS_FILE_NAME):
-            with open(DB_GUI.SETTINGS_FILE_NAME, 'r') as settings_file:
-                for line in settings_file:
-                    if line.startswith("db_filename_path"):  # selected database
-                        db_filename_path = line.split("=")[1]
-                        conf['db_filename_path'] = db_filename_path[:-1]
-                    if line.startswith("cover_directory"):  # where database data is stored
-                        cover_img_dir = line.split("=")[1]
-                        conf['cover_img_dir'] = cover_img_dir[:-1]
-                    if line.startswith("private_db_directory"):
-                        private_db_dir = line.split("=")[1]
-                        conf['private_db_dir'] = private_db_dir[:-1]
-                    if line.startswith("default_cover"):
-                        default_cover = line.split('=')[1]
-                        conf['default_cover'] = default_cover[:-1]
-        return conf
 
     def save_db(self):
         """
@@ -538,6 +511,36 @@ class DB_GUI:
         else:
             self.master.destroy()
 
+    @staticmethod
+    def load_settings():
+        # check if standard database is stored
+        conf = {}
+        # assign default values
+        conf['db_filename_path'] = ""
+        conf['cover_img_dir'] = DB_GUI.STANDARD_COVER_IMG_DIR
+        conf['private_db_dir'] = DB_GUI.STANDARD_DB_DIR
+        conf['default_cover'] = DB_GUI.STANDARD_IMG_COVER
+        conf['online_db'] = DB_GUI.STANDARD_ONLINE_DB
+        if os.path.isfile(DB_GUI.SETTINGS_FILE_NAME):
+            with open(DB_GUI.SETTINGS_FILE_NAME, 'r') as settings_file:
+                for line in settings_file:
+                    if line.startswith("db_filename_path"):  # selected database
+                        db_filename_path = line.split("=")[1]
+                        conf['db_filename_path'] = db_filename_path[:-1]
+                    elif line.startswith("cover_directory"):  # where database data is stored
+                        cover_img_dir = line.split("=")[1]
+                        conf['cover_img_dir'] = cover_img_dir[:-1]
+                    elif line.startswith("private_db_directory"):
+                        private_db_dir = line.split("=")[1]
+                        conf['private_db_dir'] = private_db_dir[:-1]
+                    elif line.startswith("default_cover"):
+                        default_cover = line.split('=')[1]
+                        conf['default_cover'] = default_cover[:-1]
+                    elif line.startswith("online_db"):
+                        online_db = line.split('=')[1]
+                        conf['online_db'] = online_db[:-1]
+        return conf
+
 
 class WindowFilmEdit:
 
@@ -684,8 +687,24 @@ class WindowFilmEdit:
         cover_relpath = os.path.relpath(cover_path)
         self.txt_cover_path.set(cover_relpath)
 
-    def load_film_data(self):
-        def load_film_data_from_omdb(edit_window, film_title):
+    def load_film_data(self, database='imdb', translate_genre=True):
+
+        def _translate_genre(genre):
+            translations = {
+                'Adventure': 'Abenteuer',
+                'Animation': 'Animation',
+                'Comedy': 'Komödie',
+                'Crime': 'Krimi',
+                'Documentary': 'Dokumentation',
+                'Family': 'Familie',
+                'Romance': 'Romantik',
+                'Sci-Fi': 'Science-Fiction',
+                'Short': 'Kurzfilm',
+                'War': 'Kriegsfilm'
+            }
+            return translations[genre] if genre in translations else genre
+
+        def load_film_data_from_omdb(edit_window, film_title, translate_genre):
 
             # get the film data in JSON format
             json_data = OmdbFilmImport.get_film_json(film_title)
@@ -695,10 +714,41 @@ class WindowFilmEdit:
             edit_window.txt_release_year.set(json_data['Year'])
             edit_window.txt_director.set(json_data['Director'])
             edit_window.txt_fsk.set("")
-            edit_window.txt_genre.set(json_data['Genre'])
+            if translate_genre:
+                genres = []
+                for genre in json_data['Genre'].split(', '):
+                    genres.append(_translate_genre(genre))
+                edit_window.txt_genre.set(', '.join(genres))
+            else:
+                edit_window.txt_genre.set(json_data['Genre'])
             edit_window.txt_actors.set(json_data['Actors'])
             edit_window.txt_length.set(json_data['Runtime'].split(' ')[0])
             edit_window.txt_cover_path.set(json_data['Poster'])
+            edit_window.txt_comment.set("")
+            edit_window.txt_rating.set("")
+            edit_window.txt_disc_type.set("")
+
+        def load_film_data_from_imdb(edit_window, film_title, translate_genre):
+
+            film_data = ImdbFilmImport.get_film_by_title(film_title)
+
+            if film_data['German title']:
+                edit_window.txt_title.set(film_data['German title'])
+            else:
+                edit_window.txt_title.set(film_data['original title'])
+            edit_window.txt_release_year.set(film_data['year'])
+            edit_window.txt_director.set(film_data['director'])
+            edit_window.txt_fsk.set("")
+            if translate_genre:
+                genres = []
+                for genre in film_data['genre'].split(', '):
+                    genres.append(_translate_genre(genre))
+                edit_window.txt_genre.set(', '.join(genres))
+            else:
+                edit_window.txt_genre.set(film_data['genre'])
+            edit_window.txt_actors.set(film_data['cast'])
+            edit_window.txt_length.set(film_data['length'])
+            edit_window.txt_cover_path.set(film_data['cover_url'])
             edit_window.txt_comment.set("")
             edit_window.txt_rating.set("")
             edit_window.txt_disc_type.set("")
@@ -711,7 +761,10 @@ class WindowFilmEdit:
                 raise NoTitleEnteredException()
 
             # display film data
-            load_film_data_from_omdb(self, title)
+            if database == 'imdb':
+                load_film_data_from_imdb(self, title, translate_genre)
+            elif database == 'omdb':
+                load_film_data_from_omdb(self, title, translate_genre)
         except NoTitleEnteredException:
             messagebox.showerror("Fehler", "Filmtitel fehlt")
         except MovieNotFoundException:
@@ -764,6 +817,8 @@ class WindowFilmEdit:
             except Exception as e:
                 messagebox.showerror("Fehler", "Fehler beim Löschen")
                 print(e)
+
+        self.db_gui.film_query()
 
     def add_film(self):
         if self.txt_title.get():
