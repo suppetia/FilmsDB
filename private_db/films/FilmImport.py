@@ -68,6 +68,10 @@ class ImdbFilmImport:
                 for x in movie.get('runtimes'):
                     if x.startswith('GER'):
                         film_data['length'] = x.split(':')[1]
+            for x in movie.get('certificates'):
+                if x.startswith('Germany'):
+                    film_data['fsk'] = x.split(':')[1]
+                    break
             film_data['director'] = ', '.join([x['name'] for x in movie.get('director')])
             film_data['genre'] = ', '.join([x for x in movie.get('genre')])
             film_data['cast'] = ', '.join([x['name'] for x in movie.get('cast')[:5]])

@@ -40,6 +40,7 @@ class DB_GUI:
         self.private_db_dir = conf['private_db_dir']
         self.default_cover = conf['default_cover']
         self.default_online_db = conf['online_db']
+        self.translate_genres = bool(conf['translate_genres'])
         print(conf)
 
         # menu bar
@@ -521,6 +522,7 @@ class DB_GUI:
         conf['private_db_dir'] = DB_GUI.STANDARD_DB_DIR
         conf['default_cover'] = DB_GUI.STANDARD_IMG_COVER
         conf['online_db'] = DB_GUI.STANDARD_ONLINE_DB
+        conf['translate_genres'] = True
         if os.path.isfile(DB_GUI.SETTINGS_FILE_NAME):
             with open(DB_GUI.SETTINGS_FILE_NAME, 'r') as settings_file:
                 for line in settings_file:
@@ -539,6 +541,9 @@ class DB_GUI:
                     elif line.startswith("online_db"):
                         online_db = line.split('=')[1]
                         conf['online_db'] = online_db[:-1]
+                    elif line.startswith('translate_genres'):
+                        translate_genres = line.split('=')[1]
+                        conf['translate_genres'] = translate_genres[:-1]
         return conf
 
 
@@ -556,7 +561,9 @@ class WindowFilmEdit:
         lbl_title.grid(row=0, column=0, padx=5, pady=5, sticky=W)
 
         if edit_type is 'add':
-            btn_load_film_data = Button(self.frame, text="laden", command=self.load_film_data)
+            btn_load_film_data = Button(self.frame, text="laden",
+                                        command=lambda: self.load_film_data(self.db_gui.default_online_db,
+                                                                            self.db_gui.translate_genres))
             btn_load_film_data.grid(row=0, column=0, pady=5, padx=5, sticky=E)
 
         self.txt_title = StringVar()
@@ -738,7 +745,7 @@ class WindowFilmEdit:
                 edit_window.txt_title.set(film_data['original title'])
             edit_window.txt_release_year.set(film_data['year'])
             edit_window.txt_director.set(film_data['director'])
-            edit_window.txt_fsk.set("")
+            edit_window.txt_fsk.set(film_data['fsk'])
             if translate_genre:
                 genres = []
                 for genre in film_data['genre'].split(', '):
