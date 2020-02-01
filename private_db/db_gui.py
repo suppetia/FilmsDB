@@ -25,6 +25,8 @@ class DB_GUI:
     SETTINGS_FILE_NAME = os.path.join("settings.conf")
     # standard online database to import film information from
     STANDARD_ONLINE_DB = 'imdb'
+    # standard default disc type
+    STANDARD_DISC_TYPE = 0
 
     def __init__(self, master):
 
@@ -41,6 +43,7 @@ class DB_GUI:
         self.default_cover = conf['default_cover']
         self.default_online_db = conf['online_db']
         self.translate_genres = bool(conf['translate_genres'])
+        self.default_disc_type = int(conf['default_disc_type'])
         print(conf)
 
         # menu bar
@@ -523,6 +526,7 @@ class DB_GUI:
         conf['default_cover'] = DB_GUI.STANDARD_IMG_COVER
         conf['online_db'] = DB_GUI.STANDARD_ONLINE_DB
         conf['translate_genres'] = True
+        conf['default_disc_type'] = DB_GUI.STANDARD_DISC_TYPE
         if os.path.isfile(DB_GUI.SETTINGS_FILE_NAME):
             with open(DB_GUI.SETTINGS_FILE_NAME, 'r') as settings_file:
                 for line in settings_file:
@@ -544,6 +548,9 @@ class DB_GUI:
                     elif line.startswith('translate_genres'):
                         translate_genres = line.split('=')[1]
                         conf['translate_genres'] = translate_genres[:-1]
+                    elif line.startswith('default_disc_type'):
+                        default_disc_type = line.split('=')[1]
+                        conf['default_disc_type'] = default_disc_type[:-1]
         return conf
 
 
@@ -560,7 +567,7 @@ class WindowFilmEdit:
         lbl_title = Label(self.frame, text="Filmtitel")
         lbl_title.grid(row=0, column=0, padx=5, pady=5, sticky=W)
 
-        if edit_type is 'add':
+        if edit_type in ['add', 'edit']:
             btn_load_film_data = Button(self.frame, text="laden",
                                         command=lambda: self.load_film_data(self.db_gui.default_online_db,
                                                                             self.db_gui.translate_genres))
@@ -657,6 +664,7 @@ class WindowFilmEdit:
         # confirm button
 
         if edit_type is 'add':
+            self.txt_disc_type.set(str(self.db_gui.default_disc_type))
             txt_btn_confirm = "Film hinzufügen"
         elif edit_type is 'edit':
             txt_btn_confirm = "Änderungen speichern"
@@ -731,9 +739,6 @@ class WindowFilmEdit:
             edit_window.txt_actors.set(json_data['Actors'])
             edit_window.txt_length.set(json_data['Runtime'].split(' ')[0])
             edit_window.txt_cover_path.set(json_data['Poster'])
-            edit_window.txt_comment.set("")
-            edit_window.txt_rating.set("")
-            edit_window.txt_disc_type.set("")
 
         def load_film_data_from_imdb(edit_window, film_title, translate_genre):
 
@@ -756,9 +761,6 @@ class WindowFilmEdit:
             edit_window.txt_actors.set(film_data['cast'])
             edit_window.txt_length.set(film_data['length'])
             edit_window.txt_cover_path.set(film_data['cover_url'])
-            edit_window.txt_comment.set("")
-            edit_window.txt_rating.set("")
-            edit_window.txt_disc_type.set("")
 
         try:
             # check whether title field is empty
