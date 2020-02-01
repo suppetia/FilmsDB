@@ -62,20 +62,26 @@ class ImdbFilmImport:
 
             # TODO: test runtimes
             try:
-                film_data['length'] = int(movie.get('runtimes')[0])
+                film_data['length'] = int(movie.get('runtimes')[0]) if movie.get('runtimes') else ""
             except ValueError:
                 print(movie.get('runtimes'))
                 for x in movie.get('runtimes'):
                     if x.startswith('GER'):
                         film_data['length'] = x.split(':')[1]
-            for x in movie.get('certificates'):
-                if x.startswith('Germany'):
-                    film_data['fsk'] = x.split(':')[1]
-                    break
-            film_data['director'] = ', '.join([x['name'] for x in movie.get('director')])
-            film_data['genre'] = ', '.join([x for x in movie.get('genre')])
-            film_data['cast'] = ', '.join([x['name'] for x in movie.get('cast')[:5]])
-            film_data['cover_url'] = movie.get('cover url')
+            if movie.get('certificates'):
+                for x in movie.get('certificates'):
+                    if x.startswith('Germany'):
+                        film_data['fsk'] = x.split(':')[1]
+                        break
+                if not 'fsk' in film_data:
+                    film_data['fsk'] = ""
+            else:
+                film_data['fsk'] = ""
+
+            film_data['director'] = ', '.join([x['name'] for x in movie.get('director')]) if movie.get('director') else ""
+            film_data['genre'] = ', '.join([x for x in movie.get('genre')]) if movie.get('genre') else ""
+            film_data['cast'] = ', '.join([x['name'] for x in movie.get('cast')[:5]]) if movie.get('cast') else ""
+            film_data['cover_url'] = movie.get('cover url') if movie.get('cover url') else ""
 
             return film_data
         except imdb.IMDbError as e:
