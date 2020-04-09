@@ -4,9 +4,11 @@
 
 import os
 from tkinter import Label, Button, Entry, Menu, Listbox, Scrollbar, Toplevel, Checkbutton
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, font
 from tkinter import N, E, S, W, END, RIGHT, BOTTOM, LEFT, BOTH, StringVar, IntVar, ACTIVE
 from PIL import ImageTk, Image
+
+import webbrowser
 
 from private_db.films.FilmeDB import *
 from private_db.films.FilmImport import *
@@ -224,6 +226,32 @@ class DB_GUI:
         self.txt_comment = StringVar()
         entry_comment = Label(self.master, textvariable=self.txt_comment)
         entry_comment.grid(row=15, column=1, columnspan=3, padx=5, sticky=W)
+
+        def open_browser(filmtitle, realase_year, website):
+            search = (filmtitle + ' ' + realase_year).replace(' ', '+')
+            if website.lower() == 'imdb':
+                ia = imdb.IMDb()
+
+                movies = ia.search_movie(search)
+                if not movies:
+                    raise MovieNotFoundException()
+                webbrowser.open("https://www.imdb.com/title/tt"+movies[0].movieID, new=2)
+
+            elif website.lower() == 'google':
+                webbrowser.open("https://www.google.de/search?q="+search, new=2)
+
+        lbl_link_imdb = Label(self.master, text="-> auf IMDb ansehen", fg='blue')
+        lbl_link_imdb.configure(font=font.Font(lbl_link_imdb, lbl_link_imdb.cget('font')).configure(underline=True))
+        lbl_link_imdb.grid(row=6, column=3, columnspan=2, padx=5, sticky=E)
+        lbl_link_imdb.bind("<Button-1>", lambda e: open_browser(filmtitle=self.txt_title.get(),
+                                                                realase_year=self.txt_release_year.get(),
+                                                                website='imdb'))
+
+        lbl_link_google = Label(self.master, text="-> auf Google suchen", fg='blue')
+        lbl_link_google.grid(row=7, column=3, columnspan=2, padx=5, sticky=E)
+        lbl_link_google.bind("<Button-1>", lambda e: open_browser(filmtitle=self.txt_title.get(),
+                                                                  realase_year=self.txt_release_year.get(),
+                                                                  website='Google'))
 
         # show the cover (default is "image not found")
         # resize the cover image
