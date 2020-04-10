@@ -3,12 +3,14 @@
 """
 
 import os
+import json
+import webbrowser
+
 from tkinter import Label, Button, Entry, Menu, Listbox, Scrollbar, Toplevel, Checkbutton
 from tkinter import messagebox, filedialog, font
 from tkinter import N, E, S, W, END, RIGHT, BOTTOM, LEFT, BOTH, StringVar, IntVar, ACTIVE
-from PIL import ImageTk, Image
 
-import webbrowser
+from PIL import ImageTk, Image
 
 from private_db.films.FilmeDB import *
 from private_db.films.FilmImport import *
@@ -23,8 +25,8 @@ class DB_GUI:
     STANDARD_COVER_IMG_DIR = os.path.join(STANDARD_DB_DIR, "cover_images")
     # standard cover picture if no cover is stored
     STANDARD_IMG_COVER = os.path.join(STANDARD_COVER_IMG_DIR, "image_not_found.gif")
-    # standard db is saved in "settings.conf"
-    SETTINGS_FILE_NAME = os.path.join("settings.conf")
+    # standard db is saved in "settings.json"
+    SETTINGS_FILE_NAME = "settings.json"
     # standard online database to import film information from
     STANDARD_ONLINE_DB = 'imdb'
     # standard default disc type
@@ -241,7 +243,7 @@ class DB_GUI:
                 webbrowser.open("https://www.google.de/search?q="+search, new=2)
 
         lbl_link_imdb = Label(self.master, text="-> auf IMDb ansehen", fg='blue')
-        lbl_link_imdb.configure(font=font.Font(lbl_link_imdb, lbl_link_imdb.cget('font')).configure(underline=True))
+        # lbl_link_imdb.configure(font=font.Font(lbl_link_imdb, lbl_link_imdb.cget('font')).configure(underline=True))
         lbl_link_imdb.grid(row=6, column=3, columnspan=2, padx=5, sticky=E)
         lbl_link_imdb.bind("<Button-1>", lambda e: open_browser(filmtitle=self.txt_title.get(),
                                                                 realase_year=self.txt_release_year.get(),
@@ -286,15 +288,17 @@ class DB_GUI:
 
                 master.wait_window(frame)
 
-                with open(self.SETTINGS_FILE_NAME, 'a') as settings_file:
-                    try:  # if path is on other mount than 'C:'
-                        db_filename_path = os.path.relpath(self.db_filename_abspath)
-                    except ValueError:
-                        db_filename_path = self.db_filename_abspath
-                    if db_filename_path:
-                        settings_file.write("db_filename_path=" + db_filename_path + "\n")
-                    else:
-                        raise NoDBException()
+                try:  # if path is on other mount than 'C:'
+                    db_filename_path = os.path.relpath(self.db_filename_abspath)
+                except ValueError:
+                    db_filename_path = self.db_filename_abspath
+                if not db_filename_path:
+                    raise NoDBException()
+                else:
+                    conf['db_filename_path'] = db_filename_path
+                    # update settings file
+                    with open(self.SETTINGS_FILE_NAME, 'w') as settings_file:
+                        json.dump(conf, settings_file, indent=2)
             else:
                 db_filename_path = conf['db_filename_path']
 
@@ -464,23 +468,18 @@ class DB_GUI:
                                                                  filetypes=[("Datenbank", "*.db")],
                                                                  title="Datenbank auswählen")
 
-            with open(self.SETTINGS_FILE_NAME, 'r+') as settings_file:
-                if db_filename_abspath:
-                    try:  # if path is on other mount than 'C:'
-                        db_filename_path = os.path.relpath(db_filename_abspath)
-                    except ValueError:
-                        db_filename_path = db_filename_abspath
-                    # rewrites the standard
-                    text = settings_file.readlines()
-                    settings_file.seek(0)
-                    for line in text:
-                        if not line.startswith("db_filename_path"):
-                            settings_file.write(line)
-                        else:
-                            settings_file.write("db_filename_path=" + db_filename_path + "\n")
-                    settings_file.truncate()
-                else:
-                    raise NoDBException()
+            try:  # if path is on other mount than 'C:'
+                db_filename_path = os.path.relpath(db_filename_abspath)
+            except ValueError:
+                db_filename_path = db_filename_abspath
+            if not db_filename_path:
+                raise NoDBException()
+            else:
+                conf = self.load_settings()
+                conf['db_filename_path'] = db_filename_path
+                # update settings file
+                with open(self.SETTINGS_FILE_NAME, 'w') as settings_file:
+                    json.dump(conf, settings_file, indent=2)
 
             # connect to new database
             self.db = FilmeDB(db_filename_path)
@@ -545,18 +544,8 @@ class DB_GUI:
 
     @staticmethod
     def load_settings():
-        # check if standard database is stored
-        conf = {}
-        # assign default values
-        conf['db_filename_path'] = ""
-        conf['cover_img_dir'] = DB_GUI.STANDARD_COVER_IMG_DIR
-        conf['private_db_dir'] = DB_GUI.STANDARD_DB_DIR
-        conf['default_cover'] = DB_GUI.STANDARD_IMG_COVER
-        conf['online_db'] = DB_GUI.STANDARD_ONLINE_DB
-        conf['translate_genres'] = True
-        conf['default_disc_type'] = DB_GUI.STANDARD_DISC_TYPE
-        if os.path.isfile(DB_GUI.SETTINGS_FILE_NAME):
-            with open(DB_GUI.SETTINGS_FILE_NAME, 'r') as settings_file:
+        def load_old_settings_file(path, conf):
+            with open(path, 'r') as settings_file:
                 for line in settings_file:
                     if line.startswith("db_filename_path"):  # selected database
                         db_filename_path = line.split("=")[1]
@@ -579,6 +568,33 @@ class DB_GUI:
                     elif line.startswith('default_disc_type'):
                         default_disc_type = line.split('=')[1]
                         conf['default_disc_type'] = default_disc_type[:-1]
+
+            return conf
+
+        # load conf dict
+        if os.path.isfile(DB_GUI.SETTINGS_FILE_NAME):
+            with open(DB_GUI.SETTINGS_FILE_NAME, 'r') as f:
+                conf = json.load(f)
+        else:
+            # store default values
+            conf = {'db_filename_path': "",
+                    'cover_img_dir': DB_GUI.STANDARD_COVER_IMG_DIR,
+                    'private_db_dir': DB_GUI.STANDARD_DB_DIR,
+                    'default_cover': DB_GUI.STANDARD_IMG_COVER,
+                    'online_db': DB_GUI.STANDARD_ONLINE_DB,
+                    'translate_genres': True,
+                    'default_disc_type': DB_GUI.STANDARD_DISC_TYPE
+                    }
+
+            # backward compatibility
+            if os.path.isfile("settings.conf"):
+                conf = load_old_settings_file("settings.conf", conf)
+
+                # remove old version of settings file
+                os.remove("settings.conf")
+
+            with open(DB_GUI.SETTINGS_FILE_NAME, 'w') as f:
+                json.dump(conf, f)
         return conf
 
 
@@ -944,7 +960,7 @@ class WindowFilmEdit:
 
                 # create the path to the storage
                 conf = DB_GUI.load_settings()
-                cover_img_dir = conf['cover_img_dir'] if conf['cover_img_dir'] else DB_GUI.STANDARD_COVER_IMG_DIR
+                cover_img_dir = conf['cover_img_dir']
                 store_path = os.path.join(cover_img_dir, img_name)
 
                 with open(store_path, 'wb') as f:
