@@ -5,6 +5,8 @@ Store your films in a database and find them by querying for film attributes.
 
 ## User Manual
 
+- move "my_db" one directory up
+
 - run 'db_main.py'
 - select database file or create a new one
     - *hint*: you can change the database by clicking 
