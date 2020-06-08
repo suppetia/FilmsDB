@@ -594,7 +594,7 @@ class DB_GUI:
                 os.remove("settings.conf")
 
             with open(DB_GUI.SETTINGS_FILE_NAME, 'w') as f:
-                json.dump(conf, f)
+                json.dump(conf, f, indent=2)
         return conf
 
 
