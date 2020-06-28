@@ -1,11 +1,14 @@
 import requests
 import imdb
 
+from private_db.films.credentials import omdb_api_key, google_api_key
+from private_db.films.BarcodeScanner import scan_camera_input
+
 
 class OmdbFilmImport:
 
     omdb_url = "http://www.omdbapi.com/"
-    api_key = "2373902e"
+    api_key = omdb_api_key
 
     @staticmethod
     def get_film_json(title, full_plot=True):
@@ -92,9 +95,45 @@ class ImdbFilmImport:
             raise FilmImportException()
 
 
+class BarcodeFilmImport:
+    """
+    1. scan a barcode
+    2. use google module to find the film title
+    """
+
+    @staticmethod
+    def read_barcode_and_get_title():
+        def _get_title_by_barcode(barcode_data):
+            cse_id = "002812416261647450282:1eskzvbjb3e"
+            api_key = google_api_key
+
+            query = barcode_data
+            start = 1
+            url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={cse_id}&q={query}&start={start}"
+
+            data = requests.get(url).json()
+            # get the result items
+            search_items = data.get("items")
+
+            if search_items:
+                # as the result uses 'buecher.de' this refers to the title of the page
+                return search_items[0].get("title").split("auf DVD")[0]
+            else:
+                raise FilmImportException()
+
+        barcode_data = scan_camera_input()
+        title = _get_title_by_barcode(barcode_data)
+
+        return title
+
+
 class FilmImportException(Exception):
     pass
 
 
 class MovieNotFoundException(FilmImportException):
+    pass
+
+
+class BarcodeScanException(Exception):
     pass

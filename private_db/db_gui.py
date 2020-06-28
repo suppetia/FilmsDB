@@ -613,9 +613,17 @@ class WindowFilmEdit:
 
         if edit_type in ['add', 'edit']:
             btn_load_film_data = Button(self.frame, text="laden",
-                                        command=lambda: self.load_film_data(self.db_gui.default_online_db,
+                                        command=lambda: self.load_film_data(None,
+                                                                            self.db_gui.default_online_db,
                                                                             self.db_gui.translate_genres))
             btn_load_film_data.grid(row=0, column=0, pady=5, padx=5, sticky=E)
+
+            btn_scan_film_barcode = Button(self.frame, text="Scan Barcode",
+                                           command=lambda: self.load_film_data(title="scan",
+                                                                               database=self.db_gui.default_online_db,
+                                                                               translate_genre=self.db_gui.translate_genres
+                                                                               ))
+            btn_scan_film_barcode.grid(row=4, column=3, padx=5, pady=10, columnspan=2, sticky=E)
 
         self.txt_title = StringVar()
 
@@ -746,7 +754,7 @@ class WindowFilmEdit:
         cover_relpath = os.path.relpath(cover_path)
         self.txt_cover_path.set(cover_relpath)
 
-    def load_film_data(self, database='imdb', translate_genre=True):
+    def load_film_data(self, title=None, database='imdb', translate_genre=True):
 
         def _translate_genre(genre):
             translations = {
@@ -807,11 +815,17 @@ class WindowFilmEdit:
             edit_window.txt_cover_path.set(film_data['cover_url'])
 
         try:
-            # check whether title field is empty
-            if self.txt_title.get():
-                title = self.txt_title.get()
+            if title == "scan":
+                title = BarcodeFilmImport.read_barcode_and_get_title()
+                if not title:
+                    raise BarcodeScanException()
+
             else:
-                raise NoTitleEnteredException()
+                # check whether title field is empty
+                if self.txt_title.get():
+                    title = self.txt_title.get()
+                else:
+                    raise NoTitleEnteredException()
 
             # display film data
             if database == 'imdb':
@@ -820,6 +834,8 @@ class WindowFilmEdit:
                 load_film_data_from_omdb(self, title, translate_genre)
         except NoTitleEnteredException:
             messagebox.showerror("Fehler", "Filmtitel fehlt")
+        except BarcodeScanException:
+            messagebox.showerror("Fehler", "BarcodeScan-Fehler")
         except MovieNotFoundException:
             messagebox.showerror("Fehler", "Kein Film mit diesem Titel gefunden")
         except FilmImportException:
