@@ -336,8 +336,13 @@ class DB_GUI:
                                              )
 
         for result in results:
-            # displays "film_id: title (release_year: director)"
-            query_res_str = str(result[0]) + ": " + str(result[1]) + " (" + str(result[2]) + ": " + str(result[3]) + ")"
+            # displays "film_id: title (release_year: director)" if there are information about release_Year and director
+            short_info = []
+            if result[2]:
+                short_info.append(str(result[2]))
+            if result[3]:
+                short_info.append(str(result[3]))
+            query_res_str = f"{result[0]}: {result[1]} {'(' + ': '.join(short_info) + ')' if short_info else ''}"
             self.lb_res_query.insert(END, query_res_str)
 
         # show details of first result
@@ -573,7 +578,7 @@ class DB_GUI:
 
         # load conf dict
         if os.path.isfile(DB_GUI.SETTINGS_FILE_NAME):
-            with open(DB_GUI.SETTINGS_FILE_NAME, 'r') as f:
+            with open(DB_GUI.SETTINGS_FILE_NAME, 'r', encoding="utf-8") as f:
                 conf = json.load(f)
         else:
             # store default values
@@ -583,7 +588,21 @@ class DB_GUI:
                     'default_cover': DB_GUI.STANDARD_IMG_COVER,
                     'online_db': DB_GUI.STANDARD_ONLINE_DB,
                     'translate_genres': True,
-                    'default_disc_type': DB_GUI.STANDARD_DISC_TYPE
+                    'default_disc_type': DB_GUI.STANDARD_DISC_TYPE,
+                    'translations':
+                        {
+                            'Adventure': 'Abenteuer',
+                            'Animation': 'Animation',
+                            'Comedy': 'Komödie',
+                            'Crime': 'Krimi',
+                            'Documentary': 'Dokumentation',
+                            'Family': 'Familie',
+                            'Romance': 'Romantik',
+                            'Sci-Fi': 'Science-Fiction',
+                            'Short': 'Kurzfilm',
+                            'War': 'Kriegsfilm',
+                            'Music': 'Musik'
+                        }
                     }
 
             # backward compatibility
@@ -593,7 +612,7 @@ class DB_GUI:
                 # remove old version of settings file
                 os.remove("settings.conf")
 
-            with open(DB_GUI.SETTINGS_FILE_NAME, 'w') as f:
+            with open(DB_GUI.SETTINGS_FILE_NAME, 'w', encoding="utf-8") as f:
                 json.dump(conf, f, indent=2)
         return conf
 
@@ -757,18 +776,11 @@ class WindowFilmEdit:
     def load_film_data(self, title=None, database='imdb', translate_genre=True):
 
         def _translate_genre(genre):
-            translations = {
-                'Adventure': 'Abenteuer',
-                'Animation': 'Animation',
-                'Comedy': 'Komödie',
-                'Crime': 'Krimi',
-                'Documentary': 'Dokumentation',
-                'Family': 'Familie',
-                'Romance': 'Romantik',
-                'Sci-Fi': 'Science-Fiction',
-                'Short': 'Kurzfilm',
-                'War': 'Kriegsfilm'
-            }
+            translations = DB_GUI.load_settings().get("translations")
+
+            if translations is None:
+                translations = {}
+
             return translations[genre] if genre in translations else genre
 
         def load_film_data_from_omdb(edit_window, film_title, translate_genre):
@@ -953,6 +965,9 @@ class WindowFilmEdit:
     def remove_film(self):
         self.db.remove_film_by_id(self.edit_film_id)
         print("film removed")
+        if self.txt_cover_path.get():
+            os.remove(self.db_gui.cover_img_dir + self.txt_cover_path.get())
+            print("film cover removed")
 
     def on_closing(self):
         pass
@@ -973,6 +988,10 @@ class WindowFilmEdit:
                     if not char == ":":
                         img_name.append(char)
                 img_name = "".join(img_name) + "." + cover_path.split(".")[-1]
+
+                # remove invalid characters (Windows filename restrictions) from image name
+                for ch in ["/", "\\", ":", "*", "?", "\"", "<", ">", "|"]:
+                    img_name = img_name.replace(ch, "")
 
                 # create the path to the storage
                 conf = DB_GUI.load_settings()
